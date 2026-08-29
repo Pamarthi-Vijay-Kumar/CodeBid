@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply scroll-smooth; }
+  body { @apply font-body bg-ink-900 text-mist-100 antialiased; }
+  h1, h2, h3, h4 { @apply font-display; }
+  ::selection { @apply bg-gold-500/30 text-gold-400; }
+
+  :focus-visible {
+    outline: 2px solid #33D6C0;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+}
+
+@layer components {
+  .bg-grid-surface {
+    background-color: theme('colors.ink.900');
+    background-image: theme('backgroundImage.grid');
+    background-size: theme('backgroundSize.grid');
+  }
+
+  .panel {
+    @apply bg-ink-800/80 border border-white/5 rounded-2xl shadow-panel backdrop-blur;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display font-semibold text-sm tracking-wide transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-gold {
+    @apply btn bg-gold-500 text-ink-950 hover:bg-gold-400 shadow-glow active:scale-[0.98];
+  }
+  .btn-teal {
+    @apply btn bg-teal-400 text-ink-950 hover:bg-teal-300 shadow-glow-teal active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn bg-white/5 text-mist-100 hover:bg-white/10 border border-white/10 active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply btn bg-coral-500 text-white hover:bg-coral-400 active:scale-[0.98];
+  }
+
+  .input {
+    @apply w-full rounded-xl bg-ink-900 border border-white/10 px-4 py-2.5 text-mist-100 placeholder:text-mist-500 focus:border-teal-400/60 focus:ring-0 outline-none transition-colors;
+  }
+
+  .label {
+    @apply text-xs uppercase tracking-[0.14em] text-mist-500 font-semibold;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-mono font-medium tracking-wide;
+  }
+  .badge-live { @apply badge bg-coral-500/15 text-coral-400; }
+  .badge-scheduled { @apply badge bg-mist-500/15 text-mist-300; }
+  .badge-completed { @apply badge bg-teal-400/15 text-teal-300; }
+  .badge-paused { @apply badge bg-gold-500/15 text-gold-400; }
+
+  .mono-num {
+    @apply font-mono tabular-nums;
+  }
+
+  .ticker-track {
+    @apply flex whitespace-nowrap animate-ticker;
+  }
+}
