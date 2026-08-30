@@ -8,6 +8,7 @@ import EventList from './pages/EventList';
 import EventDetails from './pages/EventDetails';
 import CompetitionScreen from './pages/CompetitionScreen';
 import SpectatorScreen from './pages/SpectatorScreen';
+import TeamRegister from './pages/TeamRegister';
 import ResultsPage from './pages/ResultsPage';
 import OrganizerDashboard from './pages/OrganizerDashboard';
 import CreateEvent from './pages/CreateEvent';
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/events" element={<EventList />} />
         <Route path="/events/:eventId" element={<EventDetails />} />
+        <Route path="/events/:eventId/register" element={<TeamRegister />} />
         <Route path="/events/:eventId/live" element={<SpectatorScreen />} />
         <Route path="/events/:eventId/results" element={<ResultsPage />} />
 

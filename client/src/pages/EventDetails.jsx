@@ -34,6 +34,12 @@ export default function EventDetails() {
         <h1 className="font-display font-bold text-3xl">{event.name}</h1>
         <StatusBadge status={event.status} />
       </div>
+      {event.eventDate && (
+        <p className="text-gold-400 text-sm font-mono mb-2">
+          {new Date(event.eventDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          {event.venue && ` · ${event.venue}`}
+        </p>
+      )}
       <p className="text-mist-400 mt-2 mb-8">{event.description}</p>
 
       <div className="panel p-6 mb-6">
@@ -49,7 +55,10 @@ export default function EventDetails() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Link to={`/events/${eventId}/live`} className="btn-gold">Watch live / spectate</Link>
+        {!event.isLocked && event.selfRegistrationEnabled !== false && (
+          <Link to={`/events/${eventId}/register`} className="btn-gold">Register your team</Link>
+        )}
+        <Link to={`/events/${eventId}/live`} className={!event.isLocked && event.selfRegistrationEnabled !== false ? 'btn-ghost' : 'btn-gold'}>Watch live / spectate</Link>
         <Link to="/login" className="btn-ghost">Team sign in</Link>
         <Link to={`/events/${eventId}/results`} className="btn-ghost">Results</Link>
       </div>

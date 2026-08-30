@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const DEFAULTS = {
-  name: '', description: '', venue: '', maxTeams: 8,
+  name: '', description: '', venue: '', eventDate: '', maxTeams: 60,
   startingBalance: 10000, minimumBid: 500, bidIncrement: 100,
   biddingDurationSec: 30, answerDurationSec: 20,
   wrongAnswerLossPercent: 75,
   minimumBidsRequired: 3, minimumWinningBidsRequired: 1, minimumAnsweredRequired: 1,
-  questionOrderMode: 'FIXED',
+  questionOrderMode: 'FIXED', selfRegistrationEnabled: true,
 };
 
 const NUMERIC_FIELDS = new Set([
@@ -31,7 +31,8 @@ export default function CreateEvent() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      const { data } = await api.post('/events', form);
+      const payload = { ...form, eventDate: form.eventDate ? new Date(form.eventDate).toISOString() : undefined };
+      const { data } = await api.post('/events', payload);
       navigate(`/organizer/events/${data.event._id}`);
     } catch (err) {
       setError(err.message);
@@ -57,7 +58,23 @@ export default function CreateEvent() {
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Venue"><input className="input" value={form.venue} onChange={(e) => update('venue', e.target.value)} /></Field>
+            <Field label="Event date" required>
+              <input required type="date" className="input" value={form.eventDate} onChange={(e) => update('eventDate', e.target.value)} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Field label="Max teams"><input type="number" min={2} className="input" value={form.maxTeams} onChange={(e) => update('maxTeams', e.target.value)} /></Field>
+            <Field label="Team registration">
+              <label className="flex items-center gap-2.5 h-[42px] text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-gold-500 w-4 h-4"
+                  checked={form.selfRegistrationEnabled}
+                  onChange={(e) => setForm((f) => ({ ...f, selfRegistrationEnabled: e.target.checked }))}
+                />
+                Allow teams to self-register via a link
+              </label>
+            </Field>
           </div>
         </Section>
 

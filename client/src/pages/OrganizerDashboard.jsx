@@ -36,6 +36,7 @@ export default function OrganizerDashboard() {
             <div>
               <p className="font-display font-semibold">{e.name}</p>
               <p className="text-xs text-mist-500 font-mono mt-1">
+                {e.eventDate && `${new Date(e.eventDate).toLocaleDateString()} · `}
                 {e.status} · round {Math.max(0, e.currentRoundIndex + 1)} · {e.resolvedQuestionOrder?.length || 0} questions
               </p>
             </div>

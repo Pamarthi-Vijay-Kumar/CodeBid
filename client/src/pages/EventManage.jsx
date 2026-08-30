@@ -49,10 +49,19 @@ export default function EventManage() {
 function OverviewTab({ event, eventId, onChange }) {
   const [checklist, setChecklist] = useState(null);
   const [error, setError] = useState('');
+  const [teamCount, setTeamCount] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const registrationLink = `${window.location.origin}/events/${eventId}/register`;
 
   useEffect(() => {
     api.get(`/events/${eventId}/checklist`).then(({ data }) => setChecklist(data));
   }, [eventId, event.status]);
+
+  useEffect(() => {
+    api.get(`/events/${eventId}/teams`).then(({ data }) => setTeamCount(data.teams.length));
+  }, [eventId, event.status, event.isLocked]);
 
   async function launch() {
     setError('');
@@ -61,6 +70,18 @@ function OverviewTab({ event, eventId, onChange }) {
   async function pause() { await api.post(`/events/${eventId}/pause`); onChange(); }
   async function resume() { await api.post(`/events/${eventId}/resume`); onChange(); }
   async function end() { await api.post(`/events/${eventId}/end`); onChange(); }
+
+  async function toggleSelfRegistration() {
+    setToggling(true);
+    try {
+      await api.patch(`/events/${eventId}`, { selfRegistrationEnabled: !(event.selfRegistrationEnabled !== false) });
+      onChange();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setToggling(false);
+    }
+  }
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
@@ -91,8 +112,39 @@ function OverviewTab({ event, eventId, onChange }) {
       </div>
 
       <div className="panel p-6">
-        <h2 className="label mb-4">Share with teams</h2>
-        <p className="text-sm text-mist-400 mb-3">Give this Event ID to your teams to sign in:</p>
+        <h2 className="label mb-4">Team registration</h2>
+        <p className="text-sm text-mist-400 mb-2">
+          Share this link so teams can register themselves before the event:
+        </p>
+        <div className="flex gap-2 mb-1">
+          <code className="flex-1 block bg-ink-900 border border-white/10 rounded-xl px-4 py-3 text-teal-300 text-sm break-all">
+            {registrationLink}
+          </code>
+          <button
+            type="button"
+            onClick={() => { navigator.clipboard?.writeText(registrationLink); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            className="btn-ghost !px-4 text-xs shrink-0"
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+        <p className="text-mist-500 text-xs mb-5">
+          {teamCount != null ? `${teamCount} / ${event.maxTeams} teams registered` : 'Loading team count…'}
+          {event.isLocked && ' · registration is closed (event launched)'}
+        </p>
+
+        <label className="flex items-center gap-2.5 text-sm mb-5">
+          <input
+            type="checkbox"
+            className="accent-gold-500 w-4 h-4"
+            checked={event.selfRegistrationEnabled !== false}
+            disabled={event.isLocked || toggling}
+            onChange={toggleSelfRegistration}
+          />
+          Allow teams to self-register via the link above
+        </label>
+
+        <p className="text-sm text-mist-400 mb-3">Event ID (for the team login screen):</p>
         <code className="block bg-ink-900 border border-white/10 rounded-xl px-4 py-3 text-teal-300 text-sm break-all">{eventId}</code>
         <p className="text-sm text-mist-400 mt-5 mb-3">Spectator / big-screen link:</p>
         <code className="block bg-ink-900 border border-white/10 rounded-xl px-4 py-3 text-teal-300 text-sm break-all">
@@ -253,13 +305,12 @@ function ControlTab({ event, eventId, onChange }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
+  const noWinnerThisRound = event.competitionState === 'BID_CLOSED' && !event.currentWinningTeamId;
+
   async function fire(key) {
     setError(''); setBusy(key);
     try {
-      const path = key === 'force-timeout' || key === 'skip-no-bids' || key === 'show-leaderboard'
-        ? `/events/${eventId}/competition/${key}`
-        : `/events/${eventId}/competition/${key}`;
-      await api.post(path);
+      await api.post(`/events/${eventId}/competition/${key}`);
       onChange();
     } catch (err) { setError(err.message); } finally { setBusy(''); }
   }
@@ -272,11 +323,22 @@ function ControlTab({ event, eventId, onChange }) {
         <p className="text-sm text-mist-400 mb-6">
           Round {Math.max(0, event.currentRoundIndex + 1)} of {event.resolvedQuestionOrder?.length || '—'}
         </p>
+        {noWinnerThisRound && (
+          <p className="text-gold-400 text-xs mb-4 bg-gold-500/10 border border-gold-500/30 rounded-lg px-3 py-2">
+            No team bid on this question — use <span className="font-semibold">Skip (no bids)</span> instead of Reveal question.
+          </p>
+        )}
         {error && <p className="text-coral-400 text-sm mb-4">{error}</p>}
         <div className="grid grid-cols-2 gap-2.5">
           {ACTIONS.map((a) => (
-            <button key={a.key} onClick={() => fire(a.key)} disabled={busy === a.key || event.status === 'PAUSED'}
-              className="btn-ghost text-xs !py-3">{busy === a.key ? '…' : a.label}</button>
+            <button
+              key={a.key}
+              onClick={() => fire(a.key)}
+              disabled={busy === a.key || event.status === 'PAUSED' || (a.key === 'reveal-question' && noWinnerThisRound)}
+              className={`btn-ghost text-xs !py-3 ${a.key === 'skip-no-bids' && noWinnerThisRound ? '!border-gold-500/50 !text-gold-400' : ''}`}
+            >
+              {busy === a.key ? '…' : a.label}
+            </button>
           ))}
         </div>
         <p className="text-mist-500 text-xs mt-5">

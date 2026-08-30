@@ -8,6 +8,11 @@ export default function EventCard({ event }) {
         <h3 className="font-display font-semibold text-lg leading-snug">{event.name}</h3>
         <StatusBadge status={event.status} />
       </div>
+      {event.eventDate && (
+        <p className="text-xs font-mono text-gold-400">
+          {new Date(event.eventDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+        </p>
+      )}
       <p className="text-sm text-mist-300 line-clamp-2">{event.description || 'No description provided.'}</p>
       <div className="flex items-center gap-4 text-xs font-mono text-mist-500">
         <span>{event.teamCount ?? 0} teams</span>
@@ -17,7 +22,7 @@ export default function EventCard({ event }) {
       </div>
       <div className="flex gap-2 pt-1">
         <Link to={`/events/${event._id}`} className="btn-ghost flex-1 !py-2 text-xs">Details</Link>
-        <Link to={`/events/${event._id}/live`} className="btn-gold flex-1 !py-2 text-xs">Watch live</Link>
+        <Link to={`/events/${event._id}/register`} className="btn-gold flex-1 !py-2 text-xs">Register</Link>
       </div>
     </div>
   );
