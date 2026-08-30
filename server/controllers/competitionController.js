@@ -147,6 +147,10 @@ exports.revealQuestion = asyncHandler(async (req, res) => {
   const event = req.event;
   assertTransition(event.competitionState, 'QUESTION_ACTIVE');
 
+  if (!event.currentWinningBidId) {
+    throw new ApiError(409, 'No team won this round\'s bidding - use "Skip (no bids)" instead of "Reveal question".');
+  }
+
   const eqId = event.resolvedQuestionOrder[event.currentRoundIndex];
   const eq = await EventQuestion.findById(eqId).populate({ path: 'questionId', select: '-correctAnswer' });
 

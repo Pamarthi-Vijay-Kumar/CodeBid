@@ -88,7 +88,7 @@ exports.launchEvent = asyncHandler(async (req, res) => {
 
   event.resolvedQuestionOrder = order;
   event.status = 'LIVE';
-  event.competitionState = 'READY';
+  event.competitionState = 'LIVE';
   event.isLocked = true;
   event.currentRoundIndex = -1;
   await event.save();

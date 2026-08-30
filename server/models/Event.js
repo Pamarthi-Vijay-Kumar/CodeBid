@@ -17,7 +17,11 @@ const eventSchema = new mongoose.Schema(
     startTime: { type: Date },
     endTime: { type: Date },
 
-    maxTeams: { type: Number, default: 20 },
+    maxTeams: { type: Number, default: 60 },
+
+    // Section: self-registration - lets teams sign themselves up via a
+    // shareable link, in addition to the organizer adding teams manually.
+    selfRegistrationEnabled: { type: Boolean, default: true },
 
     // --- Bidding / balance rules ---
     startingBalance: { type: Number, default: 10000 },

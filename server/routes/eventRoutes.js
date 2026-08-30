@@ -13,12 +13,14 @@ const eventScope = require('../middleware/eventScope');
 
 // Public
 router.get('/public', ctrl.listPublicEvents);
+router.get('/:eventId/registration-status', teamCtrl.registrationStatus);
+router.post('/:eventId/teams/register', teamCtrl.selfRegisterTeam);
 
 // Organizer/Admin
 router.post('/', requireAuth, requireRole('ORGANIZER', 'SUPER_ADMIN'), ctrl.createEvent);
 router.get('/', requireAuth, requireRole('ORGANIZER', 'SUPER_ADMIN'), ctrl.listMyEvents);
 
-router.get('/:eventId', requireAuth, eventScope, ctrl.getEvent);
+router.get('/:eventId', eventScope_public, ctrl.getEvent);
 router.patch('/:eventId', requireAuth, requireRole('ORGANIZER', 'SUPER_ADMIN'), eventScope, ctrl.updateEvent);
 router.get('/:eventId/checklist', requireAuth, requireRole('ORGANIZER', 'SUPER_ADMIN'), eventScope, ctrl.getLaunchChecklist);
 router.post('/:eventId/launch', requireAuth, requireRole('ORGANIZER', 'SUPER_ADMIN'), eventScope, ctrl.launchEvent);

@@ -27,7 +27,7 @@ async function run() {
       description: 'A sample event to explore the CodeBid platform.',
       venue: 'Main Auditorium',
       eventDate: new Date(),
-      maxTeams: 8,
+      maxTeams: 60,
       startingBalance: 10000,
       minimumBid: 500,
       bidIncrement: 100,
