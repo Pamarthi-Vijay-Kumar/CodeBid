@@ -17,6 +17,7 @@ export default function CompetitionScreen() {
 
   const [event, setEvent] = useState(null);
   const [team, setTeam] = useState(session?.type === 'TEAM' ? session : null);
+  const [socketStatus, setSocketStatus] = useState('connecting');
   const [phase, setPhase] = useState('LIVE');
   const [preview, setPreview] = useState(null);
   const [bidCount, setBidCount] = useState(0);
@@ -60,6 +61,19 @@ export default function CompetitionScreen() {
     loadLeaderboard();
   }, [eventId]); // eslint-disable-line
 
+  // Fallback polling so this screen never fully freezes even if live
+  // updates are unhealthy (e.g. a dropped/failed socket connection).
+  // Fast (5s) while disconnected so it recovers quickly once the socket
+  // comes back; a slow (25s) background refresh runs even when connected,
+  // as a safety net against any single missed broadcast.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (socketStatus !== 'connected') { loadEvent(); loadTeam(); }
+      loadLeaderboard();
+    }, socketStatus === 'connected' ? 25000 : 5000);
+    return () => clearInterval(t);
+  }, [eventId, socketStatus]); // eslint-disable-line
+
   useEffect(() => {
     if (activeTab === 'history') loadTransactions(txFilter);
   }, [activeTab, txFilter]); // eslint-disable-line
@@ -68,8 +82,29 @@ export default function CompetitionScreen() {
     const socket = getSocket();
     socketRef.current = socket;
     socket.auth = { token: localStorage.getItem('codebid_token') };
+
+    // Re-join the event's room on every successful connection, not just the
+    // first one. If the underlying transport ever drops and reconnects
+    // (network blips, or a Render free-tier instance waking from sleep),
+    // the previous "joined" state doesn't survive - without this, the
+    // client stays "connected" but silently stops receiving broadcasts.
+    const onConnect = () => {
+      setSocketStatus('connected');
+      socket.emit('event:join', { eventId });
+    };
+    const onDisconnect = () => setSocketStatus('disconnected');
+    const onConnectError = () => setSocketStatus('error');
+    const onSocketErrorEvent = (payload) => console.error('Socket error:', payload);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
+    socket.on('error', onSocketErrorEvent);
+
     socket.connect();
-    socket.emit('event:join', { eventId });
+    // Handles the case where the socket is already connected (e.g. a fast
+    // remount) and 'connect' won't fire again on its own.
+    if (socket.connected) onConnect();
 
     const onRoundStarted = (p) => {
       setPreview(p); setPhase('QUESTION_INFO'); setBidCount(0); setMyBid(null);
@@ -111,6 +146,10 @@ export default function CompetitionScreen() {
 
     return () => {
       socket.emit('event:leave', { eventId });
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
+      socket.off('error', onSocketErrorEvent);
       socket.off('round:started', onRoundStarted);
       socket.off('bidding:started', onBiddingStarted);
       socket.off('bid:submitted', onBidSubmitted);
@@ -164,6 +203,12 @@ export default function CompetitionScreen() {
           <h1 className="font-display font-bold text-2xl mt-0.5">{team?.teamName}</h1>
         </div>
         <div className="flex items-center gap-5">
+          {socketStatus !== 'connected' && (
+            <span className="flex items-center gap-1.5 text-xs font-mono text-coral-400" title="Live updates are not connected — try refreshing the page.">
+              <span className="w-1.5 h-1.5 rounded-full bg-coral-500 animate-pulse" />
+              {socketStatus === 'connecting' ? 'Connecting…' : 'Live updates disconnected'}
+            </span>
+          )}
           {event && <StatusBadge status={event.status} />}
           <div className="text-right">
             <div className="label">Balance</div>

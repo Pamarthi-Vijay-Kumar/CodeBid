@@ -304,8 +304,27 @@ const ACTIONS = [
 function ControlTab({ event, eventId, onChange }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [autoRemainingSec, setAutoRemainingSec] = useState(null);
 
   const noWinnerThisRound = event.competitionState === 'BID_CLOSED' && !event.currentWinningTeamId;
+
+  // Bidding and answering both now auto-advance on the server when their
+  // timer runs out - this just surfaces a live countdown so the organizer
+  // can see it happening, not something that drives any logic itself.
+  useEffect(() => {
+    const targetIso = event.competitionState === 'BIDDING' ? event.biddingEndsAt
+      : event.competitionState === 'QUESTION_ACTIVE' ? event.answerEndsAt
+      : null;
+    if (!targetIso) { setAutoRemainingSec(null); return undefined; }
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((new Date(targetIso).getTime() - Date.now()) / 1000));
+      setAutoRemainingSec(remaining);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [event.competitionState, event.biddingEndsAt, event.answerEndsAt]);
 
   async function fire(key) {
     setError(''); setBusy(key);
@@ -323,6 +342,13 @@ function ControlTab({ event, eventId, onChange }) {
         <p className="text-sm text-mist-400 mb-6">
           Round {Math.max(0, event.currentRoundIndex + 1)} of {event.resolvedQuestionOrder?.length || '—'}
         </p>
+        {autoRemainingSec != null && (
+          <p className="text-teal-300 text-xs mb-4 bg-teal-400/10 border border-teal-400/30 rounded-lg px-3 py-2 font-mono">
+            {event.competitionState === 'BIDDING'
+              ? `Bidding auto-closes in ${autoRemainingSec}s`
+              : `Answer window auto-resolves in ${autoRemainingSec}s`}
+          </p>
+        )}
         {noWinnerThisRound && (
           <p className="text-gold-400 text-xs mb-4 bg-gold-500/10 border border-gold-500/30 rounded-lg px-3 py-2">
             No team bid on this question — use <span className="font-semibold">Skip (no bids)</span> instead of Reveal question.
@@ -342,19 +368,16 @@ function ControlTab({ event, eventId, onChange }) {
           ))}
         </div>
         <p className="text-mist-500 text-xs mt-5">
-          The server enforces the state machine — invalid transitions are rejected automatically, so it&rsquo;s safe to click through this in order.
+          Bidding and answering now auto-advance on their own when the timer runs out — the buttons below are only for skipping ahead early or overriding manually.
         </p>
       </div>
       <div className="panel p-6">
-        <h2 className="label mb-3">Suggested flow</h2>
+        <h2 className="label mb-3">How it flows</h2>
         <ol className="text-sm text-mist-400 space-y-2 list-decimal list-inside">
           <li>Start / Next question</li>
-          <li>Start bidding</li>
-          <li>Close bidding (after the timer)</li>
-          <li>Reveal question</li>
-          <li>Wait for the answer, or Force timeout</li>
-          <li>Show leaderboard</li>
-          <li>Repeat</li>
+          <li>Start bidding — closes and reveals the question to the winner automatically when the timer ends</li>
+          <li>Winning team answers, or the round auto-resolves as a timeout if they don&rsquo;t</li>
+          <li>Click Show leaderboard, then Start / Next question again</li>
         </ol>
       </div>
     </div>

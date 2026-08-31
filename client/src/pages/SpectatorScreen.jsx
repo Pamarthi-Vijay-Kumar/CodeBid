@@ -16,18 +16,38 @@ export default function SpectatorScreen() {
   const [winner, setWinner] = useState(null);
   const [result, setResult] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [socketStatus, setSocketStatus] = useState('connecting');
   const socketRef = useRef(null);
 
   const loadEvent = () => api.get(`/events/${eventId}`).then(({ data }) => { setEvent(data.event); setPhase(data.event.competitionState); });
   const loadLeaderboard = () => api.get(`/events/${eventId}/leaderboard`).then(({ data }) => setLeaderboard(data.leaderboard));
 
-  useEffect(() => { loadEvent(); loadLeaderboard(); const t = setInterval(loadLeaderboard, 15000); return () => clearInterval(t); }, [eventId]); // eslint-disable-line
+  // Poll as a fallback so this screen never fully freezes even if the
+  // socket connection is unhealthy - every 8s while disconnected, every
+  // 20s otherwise as a safety net against missed broadcasts.
+  useEffect(() => {
+    loadEvent(); loadLeaderboard();
+    const t = setInterval(() => {
+      loadLeaderboard();
+      if (socketStatus !== 'connected') loadEvent();
+    }, socketStatus === 'connected' ? 20000 : 8000);
+    return () => clearInterval(t);
+  }, [eventId, socketStatus]); // eslint-disable-line
 
   useEffect(() => {
     const socket = getSocket();
     socketRef.current = socket;
+
+    const onConnect = () => { setSocketStatus('connected'); socket.emit('event:join', { eventId }); };
+    const onDisconnect = () => setSocketStatus('disconnected');
+    const onConnectError = () => setSocketStatus('error');
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
+
     socket.connect();
-    socket.emit('event:join', { eventId });
+    if (socket.connected) onConnect();
 
     const onRound = (p) => { setPreview(p); setPhase('QUESTION_INFO'); setBidCount(0); setWinner(null); setResult(null); };
     const onBidding = ({ biddingEndsAt }) => { setPhase('BIDDING'); setEvent((e) => e && ({ ...e, biddingEndsAt })); };
@@ -49,6 +69,9 @@ export default function SpectatorScreen() {
 
     return () => {
       socket.emit('event:leave', { eventId });
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off('round:started', onRound);
       socket.off('bidding:started', onBidding);
       socket.off('bid:submitted', onBid);
@@ -68,7 +91,15 @@ export default function SpectatorScreen() {
           <span className="label">Live spectator screen</span>
           <h1 className="font-display font-bold text-3xl mt-1">{event?.name || 'CodeBid'}</h1>
         </div>
-        {event && <StatusBadge status={event.status} />}
+        <div className="flex items-center gap-4">
+          {socketStatus !== 'connected' && (
+            <span className="flex items-center gap-1.5 text-xs font-mono text-coral-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-coral-500 animate-pulse" />
+              {socketStatus === 'connecting' ? 'Connecting…' : 'Reconnecting…'}
+            </span>
+          )}
+          {event && <StatusBadge status={event.status} />}
+        </div>
       </div>
 
       <div className="panel p-10 min-h-[320px] flex items-center justify-center mb-8">
