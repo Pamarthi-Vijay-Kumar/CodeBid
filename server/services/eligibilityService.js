@@ -46,4 +46,22 @@ function buildLeaderboard(teams, event) {
   ];
 }
 
-module.exports = { isEligible, eligibilityReason, compareTeams, buildLeaderboard };
+// Live in-progress leaderboard (Section 26): ranks EVERY team by the same
+// tie-break order regardless of eligibility, so a rank is visible and
+// updating throughout the event - not just once teams clear the minimum
+// bids/wins/answers thresholds. Eligibility is still attached per team as
+// informational metadata (shown as a badge); it just doesn't gate the rank
+// number itself. Contrast with buildLeaderboard() above, which is used
+// only for the final results screen (Section 27), where eligibility
+// genuinely determines whether a team is ranked there at all.
+function buildLiveLeaderboard(teams, event) {
+  const sorted = [...teams].sort((a, b) => compareTeams(a, b));
+  return sorted.map((t, i) => ({
+    rank: i + 1,
+    team: t,
+    eligible: isEligible(t, event),
+    reasons: isEligible(t, event) ? [] : eligibilityReason(t, event),
+  }));
+}
+
+module.exports = { isEligible, eligibilityReason, compareTeams, buildLeaderboard, buildLiveLeaderboard };

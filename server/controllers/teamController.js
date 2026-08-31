@@ -4,7 +4,7 @@ const Event = require('../models/Event');
 const Team = require('../models/Team');
 const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
-const { buildLeaderboard } = require('../services/eligibilityService');
+const { buildLiveLeaderboard } = require('../services/eligibilityService');
 
 // Shared by both the organizer-managed "add team" flow and the public
 // self-registration flow, so validation and bookkeeping never drift apart.
@@ -183,7 +183,7 @@ exports.adjustBalance = asyncHandler(async (req, res) => {
 
 exports.eventLeaderboard = asyncHandler(async (req, res) => {
   const teams = await Team.find({ eventId: req.event._id, status: { $ne: 'WITHDRAWN' } });
-  const leaderboard = buildLeaderboard(teams, req.event);
+  const leaderboard = buildLiveLeaderboard(teams, req.event);
   res.json({
     success: true,
     leaderboard: leaderboard.map((row) => ({

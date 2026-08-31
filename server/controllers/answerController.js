@@ -10,9 +10,12 @@ const CompetitionRound = require('../models/CompetitionRound');
 const { resolveOutcome } = require('../services/scoringService');
 const { assertTransition } = require('../services/stateMachineService');
 const { getIo, room } = require('./competitionController');
+const scheduler = require('../services/schedulerService');
 
-// Shared resolver used by both explicit submission and timeout.
-async function resolveAnswer({ req, event, submittedAnswer, isTimeout }) {
+// Shared resolver used by explicit submission, the organizer's manual
+// "Force timeout" button, and the automatic timeout fired by the scheduler
+// when the answer window expires with nobody answering.
+async function resolveAnswer({ event, submittedAnswer, isTimeout }) {
   const eqId = event.resolvedQuestionOrder[event.currentRoundIndex];
   const eq = await EventQuestion.findById(eqId);
   const question = await Question.findById(eq.questionId).select('+correctAnswer');
@@ -83,7 +86,7 @@ async function resolveAnswer({ req, event, submittedAnswer, isTimeout }) {
   event.competitionState = 'RESULT';
   await event.save();
 
-  const io = getIo(req);
+  const io = getIo();
   io.to(room(event._id)).emit('answer:result', {
     teamId: team._id,
     teamName: team.teamName,
@@ -98,6 +101,13 @@ async function resolveAnswer({ req, event, submittedAnswer, isTimeout }) {
 
   return { answer, team, outcome, question };
 }
+
+// Called by the scheduler when the answer window expires with no
+// submission - the automatic version of "Force timeout".
+async function resolveTimeoutInternal(event) {
+  return resolveAnswer({ event, submittedAnswer: null, isTimeout: true });
+}
+module.exports.resolveTimeoutInternal = resolveTimeoutInternal;
 
 // Only the winning team may call this, and only once.
 exports.submitAnswer = asyncHandler(async (req, res) => {
@@ -118,7 +128,12 @@ exports.submitAnswer = asyncHandler(async (req, res) => {
   if (answer == null || answer === '') throw new ApiError(400, 'An answer is required.');
 
   assertTransition(event.competitionState, 'ANSWER_SUBMITTED');
-  const result = await resolveAnswer({ req, event, submittedAnswer: answer, isTimeout: false });
+  // The team beat the auto-timeout - cancel it so it doesn't fire on top
+  // of this (harmless either way, since the state guard below would make
+  // it a no-op, but this avoids the wasted DB round-trip).
+  scheduler.cancel(event._id);
+
+  const result = await resolveAnswer({ event, submittedAnswer: answer, isTimeout: false });
 
   res.json({
     success: true,
@@ -129,8 +144,8 @@ exports.submitAnswer = asyncHandler(async (req, res) => {
   });
 });
 
-// Called by the organizer's control panel (or a server timer) once the
-// answer window has expired with no submission.
+// Manual "Force timeout" button - same effect as the automatic timeout,
+// just triggered early by the organizer.
 exports.forceTimeout = asyncHandler(async (req, res) => {
   const event = req.event;
   if (event.competitionState !== 'QUESTION_ACTIVE') {
@@ -139,7 +154,8 @@ exports.forceTimeout = asyncHandler(async (req, res) => {
   if (event.answerEndsAt && new Date() < event.answerEndsAt) {
     throw new ApiError(409, 'Answer time has not expired yet.');
   }
-  const result = await resolveAnswer({ req, event, submittedAnswer: null, isTimeout: true });
+  scheduler.cancel(event._id);
+  const result = await resolveAnswer({ event, submittedAnswer: null, isTimeout: true });
   res.json({ success: true, result: result.outcome.result });
 });
 
@@ -158,7 +174,7 @@ exports.skipNoBidsRound = asyncHandler(async (req, res) => {
   event.competitionState = 'RESULT';
   await event.save();
 
-  getIo(req).to(room(event._id)).emit('answer:result', { result: 'NO_BIDS' });
+  getIo().to(room(event._id)).emit('answer:result', { result: 'NO_BIDS' });
   res.json({ success: true });
 });
 
@@ -168,6 +184,6 @@ exports.showLeaderboard = asyncHandler(async (req, res) => {
   assertTransition(event.competitionState, 'LEADERBOARD');
   event.competitionState = 'LEADERBOARD';
   await event.save();
-  getIo(req).to(room(event._id)).emit('leaderboard:updated', {});
+  getIo().to(room(event._id)).emit('leaderboard:updated', {});
   res.json({ success: true, event });
 });

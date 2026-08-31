@@ -60,7 +60,7 @@ exports.submitBid = asyncHandler(async (req, res) => {
   // Blind bidding: broadcast only that a bid was placed and how many teams
   // have bid so far - never the amount or the bidder.
   const bidCount = await Bid.countDocuments({ eventQuestionId: eqId });
-  getIo(req).to(room(event._id)).emit('bid:submitted', { bidCount });
+  getIo().to(room(event._id)).emit('bid:submitted', { bidCount });
 
   res.status(201).json({ success: true, bidId: bid._id, submittedAt: bid.submittedAt });
 });
